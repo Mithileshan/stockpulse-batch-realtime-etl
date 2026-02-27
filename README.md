@@ -2,6 +2,9 @@
 
 Production-ready data pipeline for ingesting, processing, and serving stock market data using Redpanda (Kafka-compatible), PostgreSQL, and FastAPI. Supports both real-time tick streaming and aggregated OHLCV analytics.
 
+[![Lint](https://github.com/Mithileshan/stockpulse-batch-realtime-etl/actions/workflows/lint.yml/badge.svg)](https://github.com/Mithileshan/stockpulse-batch-realtime-etl/actions/workflows/lint.yml)
+[![Docker Build](https://github.com/Mithileshan/stockpulse-batch-realtime-etl/actions/workflows/docker.yml/badge.svg)](https://github.com/Mithileshan/stockpulse-batch-realtime-etl/actions/workflows/docker.yml)
+
 ![Redpanda](https://img.shields.io/badge/redpanda-v24.1.15-red?style=flat-square)
 ![Postgres](https://img.shields.io/badge/postgres-16.4-blue?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.11+-blue?style=flat-square)
@@ -287,6 +290,49 @@ docker exec -it stockpulse_postgres psql -U stockpulse -d stockpulse \
 
 ---
 
+## Observability
+
+### Prometheus Metrics
+
+All API request metrics are auto-instrumented and exposed at `/metrics`:
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+Includes: `http_requests_total`, `http_request_duration_seconds` (p50/p95/p99), `http_request_size_bytes`.
+
+### Health Endpoints
+
+```bash
+# Liveness check
+curl http://localhost:8000/health
+# {"status":"ok","db":"ok"}
+
+# Readiness check (DB + row counts)
+curl http://localhost:8000/ready
+# {"status":"ready","checks":{"db":"ok","stock_ticks":1240,"stock_bars_1m":87}}
+```
+
+### Structured Logs
+
+All services emit JSON logs to stdout:
+
+```json
+{"ts":"2026-02-27T07:41:00Z","level":"INFO","service":"consumer","msg":"{\"event\":\"tick_inserted\",\"count\":120,\"symbol\":\"AAPL\",\"price\":189.72}"}
+{"ts":"2026-02-27T07:41:00Z","level":"INFO","service":"aggregator","msg":"{\"event\":\"bars_upserted\",\"count\":6,\"from\":\"...\",\"to\":\"...\"}"}
+```
+
+### Dead-Letter Queue
+
+Malformed messages are written to the `failed_events` table instead of crashing the consumer:
+
+```sql
+SELECT * FROM failed_events ORDER BY failed_at DESC LIMIT 10;
+```
+
+---
+
 ## Phases
 
 - **Phase 1** ✅ Complete: Production-ready local infrastructure
@@ -314,13 +360,22 @@ docker exec -it stockpulse_postgres psql -U stockpulse -d stockpulse \
   - ✅ Watermark persisted in `etl_runs` for incremental processing
   - ✅ Bar endpoints: `/bars/latest`, `/bars/summary`, `/movers`
 
-- **Phase 5** (Planned): Real data ingestion
-  - AlphaVantage / yFinance integration
-  - Replace simulated producer with live market data
+- **Phase 5** ✅ Complete: Observability + reliability
+  - ✅ Structured JSON logging across all services (producer, consumer, aggregator, API)
+  - ✅ Prometheus metrics endpoint at `/metrics` (request count, latency, status codes)
+  - ✅ `/ready` deep health check (DB connectivity + row counts)
+  - ✅ CORS middleware + HTTP request logging middleware
+  - ✅ Consumer retry with exponential backoff on DB insert errors
+  - ✅ Dead-letter queue: malformed messages written to `failed_events` table
 
-- **Phase 6** (Planned): CI + tests
-  - Pytest integration tests
-  - GitHub Actions pipeline
+- **Phase 6** ✅ Complete: CI/CD
+  - ✅ GitHub Actions: lint workflow (ruff)
+  - ✅ GitHub Actions: Docker build workflow (all 4 images)
+  - ✅ Makefile: `make up`, `make down`, `make logs`, `make health`, `make lint`
+
+- **Phase 7** (Planned): Real data ingestion + tests
+  - AlphaVantage / yFinance integration
+  - Pytest unit + integration tests
 
 ---
 

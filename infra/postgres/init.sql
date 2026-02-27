@@ -27,6 +27,17 @@ CREATE TABLE IF NOT EXISTS stock_bars_1m (
 CREATE INDEX IF NOT EXISTS idx_stock_bars_1m_symbol_bucket
 ON stock_bars_1m (symbol, bucket_start DESC);
 
+CREATE TABLE IF NOT EXISTS failed_events (
+    id BIGSERIAL PRIMARY KEY,
+    source VARCHAR(50),
+    topic VARCHAR(100),
+    partition_id INTEGER,
+    offset_id BIGINT,
+    raw_value TEXT,
+    error_message TEXT,
+    failed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS etl_runs (
     id BIGSERIAL PRIMARY KEY,
     source VARCHAR(50),

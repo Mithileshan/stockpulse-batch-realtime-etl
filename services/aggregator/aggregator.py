@@ -5,10 +5,13 @@ Reads stock_ticks, computes 1m OHLCV bars, upserts into stock_bars_1m.
 Stores watermark in etl_runs to support idempotent re-runs.
 """
 
+import json
+import logging
 import os
 import time
-import psycopg2
 from datetime import datetime, timezone
+
+import psycopg2
 
 DB_CONFIG = {
     "dbname": os.getenv("POSTGRES_DB", "stockpulse"),
@@ -48,14 +51,41 @@ UPSERT_SQL = """
 """
 
 
+class _JSONFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "service": "aggregator",
+            "msg": record.getMessage(),
+        }
+        if record.exc_info:
+            entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(entry)
+
+
+def _setup_logger(name: str) -> logging.Logger:
+    _logger = logging.getLogger(name)
+    _logger.setLevel(logging.INFO)
+    _logger.handlers = []
+    handler = logging.StreamHandler()
+    handler.setFormatter(_JSONFormatter())
+    _logger.addHandler(handler)
+    _logger.propagate = False
+    return _logger
+
+
+logger = _setup_logger("aggregator")
+
+
 def connect_db(retries: int = 10, delay: int = 3) -> psycopg2.extensions.connection:
     for attempt in range(1, retries + 1):
         try:
             conn = psycopg2.connect(**DB_CONFIG)
-            print(f"[Aggregator] DB connected on attempt {attempt}", flush=True)
+            logger.info(json.dumps({"event": "db_connected", "attempt": attempt}))
             return conn
         except psycopg2.OperationalError as e:
-            print(f"[Aggregator] DB attempt {attempt}/{retries} failed: {e}", flush=True)
+            logger.warning(json.dumps({"event": "db_connect_failed", "attempt": attempt, "error": str(e)}))
             if attempt < retries:
                 time.sleep(delay)
     raise RuntimeError("Could not connect to PostgreSQL after retries")
@@ -87,7 +117,7 @@ def run_aggregation(db: psycopg2.extensions.connection) -> None:
     with db.cursor() as cur:
         from_time = get_watermark(cur)
         if from_time is None:
-            print("[Aggregator] No ticks yet, waiting...", flush=True)
+            logger.info(json.dumps({"event": "no_ticks_yet"}))
             return
 
         # Only process completed minutes — exclude the current in-progress minute
@@ -106,11 +136,11 @@ def run_aggregation(db: psycopg2.extensions.connection) -> None:
         db.commit()
 
         if rows:
-            print(f"[Aggregator] Upserted {len(rows)} bars | window {from_time.isoformat()} → {to_time.isoformat()}", flush=True)
+            logger.info(json.dumps({"event": "bars_upserted", "count": len(rows), "from": from_time.isoformat(), "to": to_time.isoformat()}))
 
 
 def main():
-    print(f"[Aggregator] Starting — interval={INTERVAL}s", flush=True)
+    logger.info(json.dumps({"event": "startup", "interval_s": INTERVAL}))
     db = connect_db()
 
     try:
@@ -118,11 +148,11 @@ def main():
             try:
                 run_aggregation(db)
             except Exception as e:
-                print(f"[Aggregator] Error during aggregation: {e}", flush=True)
+                logger.error(json.dumps({"event": "aggregation_error", "error": str(e)}))
                 db.rollback()
             time.sleep(INTERVAL)
     except KeyboardInterrupt:
-        print("[Aggregator] Shutting down", flush=True)
+        logger.info(json.dumps({"event": "shutdown"}))
     finally:
         db.close()
 

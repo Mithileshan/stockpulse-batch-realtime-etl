@@ -4,11 +4,13 @@ StockPulse Producer — Simulated real-time tick generator
 Publishes OHLCV tick events to Redpanda (stock.ticks.v1)
 """
 
-import os
 import json
-import time
+import logging
+import os
 import random
+import time
 from datetime import datetime, timezone
+
 from confluent_kafka import Producer
 
 BROKER = os.getenv("KAFKA_BROKERS", "redpanda:9092")
@@ -26,42 +28,68 @@ BASE_PRICES = {
     "NVDA": 875.0,
 }
 
-producer = Producer({"bootstrap.servers": BROKER})
+
+class _JSONFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "service": "producer",
+            "msg": record.getMessage(),
+        }
+        if record.exc_info:
+            entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(entry)
+
+
+def _setup_logger(name: str) -> logging.Logger:
+    _logger = logging.getLogger(name)
+    _logger.setLevel(logging.INFO)
+    _logger.handlers = []
+    handler = logging.StreamHandler()
+    handler.setFormatter(_JSONFormatter())
+    _logger.addHandler(handler)
+    _logger.propagate = False
+    return _logger
+
+
+logger = _setup_logger("producer")
+
+kafka_producer = Producer({"bootstrap.servers": BROKER})
 
 
 def delivery_report(err, msg):
     if err:
-        print(f"[ERROR] Delivery failed for {msg.key()}: {err}", flush=True)
+        logger.error(json.dumps({"event": "delivery_failed", "topic": msg.topic(), "error": str(err)}))
 
 
 def generate_tick(symbol: str) -> dict:
     base = BASE_PRICES[symbol]
     drift = random.uniform(-0.5, 0.5)
-    price = round(base + drift, 2)
     return {
         "symbol": symbol,
-        "price": price,
+        "price": round(base + drift, 2),
         "volume": random.randint(500, 15000),
         "event_time": datetime.now(timezone.utc).isoformat(),
     }
 
 
 def main():
-    print(f"[Producer] Starting — broker={BROKER} topic={TOPIC} interval={INTERVAL}s", flush=True)
+    logger.info(json.dumps({"event": "startup", "broker": BROKER, "topic": TOPIC, "interval_s": INTERVAL}))
     counter = 0
 
     while True:
         symbol = random.choice(SYMBOLS)
         tick = generate_tick(symbol)
-        producer.produce(
+        kafka_producer.produce(
             topic=TOPIC,
             key=tick["symbol"],
             value=json.dumps(tick),
             callback=delivery_report,
         )
-        producer.poll(0)
+        kafka_producer.poll(0)
         counter += 1
-        print(f"[Producer] #{counter} {tick['symbol']} @ {tick['price']}", flush=True)
+        logger.info(json.dumps({"event": "tick_produced", "count": counter, "symbol": tick["symbol"], "price": tick["price"]}))
         time.sleep(INTERVAL)
 
 

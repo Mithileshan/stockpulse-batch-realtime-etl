@@ -1,0 +1,22 @@
+name: Docker Build
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build producer
+        run: docker build ./services/producer
+      - name: Build consumer
+        run: docker build ./services/consumer
+      - name: Build aggregator
+        run: docker build ./services/aggregator
+      - name: Build api
+        run: docker build ./services/api
