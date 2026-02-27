@@ -1,0 +1,70 @@
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.1.15
+    container_name: stockpulse_redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --advertise-kafka-addr=redpanda:9092
+      - --kafka-addr=0.0.0.0:9092
+    ports:
+      - "9092:9092"
+      - "9644:9644"
+    networks:
+      - stockpulse_network
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  console:
+    image: redpandadata/console:v2.6.1
+    container_name: stockpulse_console
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: "redpanda:9092"
+    ports:
+      - "8080:8080"
+    networks:
+      - stockpulse_network
+
+  postgres:
+    image: postgres:16.4
+    container_name: stockpulse_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - stockpulse_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+volumes:
+  pg_data:
+
+networks:
+  stockpulse_network:
+    driver: bridge
