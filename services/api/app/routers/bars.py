@@ -132,14 +132,18 @@ def top_movers(
                 FROM stock_bars_1m
                 WHERE bucket_start >= NOW() - (:minutes * INTERVAL '1 minute')
                 ORDER BY symbol, bucket_start DESC
+            ),
+            ranked AS (
+                SELECT
+                    f.symbol,
+                    f.open  AS price_open,
+                    l.close AS price_close,
+                    ROUND(((l.close - f.open) / NULLIF(f.open, 0) * 100)::numeric, 4) AS change_pct
+                FROM first_bar f
+                JOIN last_bar l ON f.symbol = l.symbol
             )
-            SELECT
-                f.symbol,
-                f.open        AS price_open,
-                l.close       AS price_close,
-                ROUND(((l.close - f.open) / NULLIF(f.open, 0) * 100)::numeric, 4) AS change_pct
-            FROM first_bar f
-            JOIN last_bar l ON f.symbol = l.symbol
+            SELECT symbol, price_open, price_close, change_pct
+            FROM ranked
             ORDER BY ABS(change_pct) DESC NULLS LAST
             LIMIT :limit
         """),
