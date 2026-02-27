@@ -98,6 +98,45 @@ services:
       - stockpulse_network
     restart: unless-stopped
 
+  aggregator:
+    build:
+      context: ./services/aggregator
+    container_name: stockpulse_aggregator
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      AGGREGATE_INTERVAL: "30"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - stockpulse_network
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./services/api
+    container_name: stockpulse_api
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - stockpulse_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
 volumes:
   pg_data:
 
