@@ -99,10 +99,9 @@ docker exec stockpulse_redpanda rpk topic create stock.bars.1m.v1 -p 3
 ### 5. Smoke test — produce & consume
 
 ```bash
-# Produce a test message
-docker exec stockpulse_redpanda rpk topic produce stock.ticks.v1 \
-  -k AAPL \
-  -v '{"symbol":"AAPL","price":190.12,"ts":"2026-02-27T12:00:00Z"}'
+# Produce a test message (pipe value via stdin)
+echo '{"symbol":"AAPL","price":190.12,"ts":"2026-02-27T12:00:00Z"}' | \
+  docker exec -i stockpulse_redpanda rpk topic produce stock.ticks.v1 -k AAPL
 
 # Consume it back
 docker exec stockpulse_redpanda rpk topic consume stock.ticks.v1 -n 1
