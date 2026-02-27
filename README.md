@@ -149,10 +149,11 @@ docker exec stockpulse_redpanda rpk topic consume stock.ticks.v1 -n 1
   - ✅ Pinned versions, healthchecks, env management
   - ✅ Topic naming convention established
 
-- **Phase 2** (Planned): Data ingestion services
-  - Producer: AlphaVantage / yFinance → Redpanda
-  - Consumer: Redpanda → PostgreSQL sink
-  - DB schema + migrations
+- **Phase 2** ✅ Complete: Data ingestion services
+  - ✅ Producer: simulated tick generator → Redpanda (6 symbols, 2s interval)
+  - ✅ Consumer: Redpanda → PostgreSQL sink (confluent-kafka + psycopg2)
+  - ✅ DB schema: `stock_ticks` table + `etl_runs` audit table
+  - ✅ Auto-init via `docker-entrypoint-initdb.d/init.sql`
 
 - **Phase 3** (Planned): Analytics API
   - FastAPI with OHLCV endpoints
