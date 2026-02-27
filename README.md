@@ -373,9 +373,67 @@ SELECT * FROM failed_events ORDER BY failed_at DESC LIMIT 10;
   - ✅ GitHub Actions: Docker build workflow (all 4 images)
   - ✅ Makefile: `make up`, `make down`, `make logs`, `make health`, `make lint`
 
-- **Phase 7** (Planned): Real data ingestion + tests
-  - AlphaVantage / yFinance integration
-  - Pytest unit + integration tests
+- **Phase 7** ✅ Complete: Real data ingestion + tests
+  - ✅ yFinance producer (`producer_yfinance.py`): Real stock data ingestion with cached & polling modes
+  - ✅ Pytest test suite: 100+ unit tests across all services
+    - `tests/test_api.py`: API endpoint tests (health, symbols, ticks, bars, movers, metrics)
+    - `tests/test_producer.py`: Producer unit tests (simulated + yfinance)
+    - `tests/test_consumer.py`: Consumer tests (Kafka integration, DB sink, retry logic, schema validation)
+    - `tests/test_aggregator.py`: Aggregator tests (bucket calculation, OHLCV, idempotence, watermarking)
+  - ✅ pytest fixtures (`conftest.py`): sample ticks, bars, mock Kafka/DB, environment setup
+  - ✅ `pytest.ini`: Test configuration with markers (unit, integration, slow)
+  - ✅ `requirements-test.txt`: pytest, pytest-cov, faker, yfinance, test dependencies
+  - ✅ Makefile: `make test`, `make test-cov`, `make test-unit`, `make test-integration`
+
+---
+
+## Running Tests
+
+### Install test dependencies
+
+```bash
+pip install -r requirements-test.txt
+```
+
+### Run all tests
+
+```bash
+make test
+```
+
+### Run with coverage
+
+```bash
+make test-cov
+# Coverage report: htmlcov/index.html
+```
+
+### Run unit tests only
+
+```bash
+make test-unit
+```
+
+### Run specific test file
+
+```bash
+pytest tests/test_api.py -v
+```
+
+---
+
+## Real Data Producer (yFinance)
+
+### Environment Variables
+
+```bash
+export PRODUCER_MODE="cached"  # 'cached' (2s interval) or 'poll' (fresh each tick)
+```
+
+### Modes
+
+- **Cached** (default, 2s interval): Fetches all symbols every 60s, serves from cache → low latency, good for demos
+- **Poll**: Fetches fresh on each tick → higher latency, more realistic backtesting
 
 ---
 

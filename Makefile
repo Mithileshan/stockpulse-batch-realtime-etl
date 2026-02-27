@@ -1,4 +1,4 @@
-.PHONY: up down down-v build logs ps health lint
+.PHONY: up down down-v build logs ps health lint test test-cov test-unit test-integration
 
 up:
 	docker compose up -d --build
@@ -24,3 +24,15 @@ health:
 
 lint:
 	ruff check services/ --select E,F,W --ignore E501
+
+test:
+	pytest tests/ -v
+
+test-cov:
+	pytest tests/ -v --cov=services --cov-report=html --cov-report=term
+
+test-unit:
+	pytest tests/ -v -m "not slow"
+
+test-integration:
+	pytest tests/ -v -m "integration"
