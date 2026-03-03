@@ -333,59 +333,6 @@ SELECT * FROM failed_events ORDER BY failed_at DESC LIMIT 10;
 
 ---
 
-## Phases
-
-- **Phase 1** ✅ Complete: Production-ready local infrastructure
-  - ✅ Redpanda v24.1.15 (Kafka-compatible, single-node)
-  - ✅ Redpanda Console v2.6.1 (Kafka UI)
-  - ✅ PostgreSQL 16.4 with persistent volume
-  - ✅ Pinned versions, healthchecks, env management
-  - ✅ Topic naming convention established
-
-- **Phase 2** ✅ Complete: Data ingestion services
-  - ✅ Producer: simulated tick generator → Redpanda (6 symbols, 2s interval)
-  - ✅ Consumer: Redpanda → PostgreSQL sink (confluent-kafka + psycopg2)
-  - ✅ DB schema: `stock_ticks` + `etl_runs` tables, auto-init
-
-- **Phase 3** ✅ Complete: Analytics API
-  - ✅ FastAPI 0.111 with Swagger UI
-  - ✅ SQLAlchemy 2.0 + connection pooling
-  - ✅ Endpoints: `/health`, `/symbols`, `/ticks/latest`, `/ticks/summary`
-  - ✅ Input validation + consistent error response format
-
-- **Phase 4** ✅ Complete: Aggregation pipeline
-  - ✅ `stock_bars_1m` table with UNIQUE(symbol, bucket_start) constraint
-  - ✅ Aggregator service: ticks → 1m OHLCV bars every 30s
-  - ✅ Idempotent upsert — safe to re-run without duplicates
-  - ✅ Watermark persisted in `etl_runs` for incremental processing
-  - ✅ Bar endpoints: `/bars/latest`, `/bars/summary`, `/movers`
-
-- **Phase 5** ✅ Complete: Observability + reliability
-  - ✅ Structured JSON logging across all services (producer, consumer, aggregator, API)
-  - ✅ Prometheus metrics endpoint at `/metrics` (request count, latency, status codes)
-  - ✅ `/ready` deep health check (DB connectivity + row counts)
-  - ✅ CORS middleware + HTTP request logging middleware
-  - ✅ Consumer retry with exponential backoff on DB insert errors
-  - ✅ Dead-letter queue: malformed messages written to `failed_events` table
-
-- **Phase 6** ✅ Complete: CI/CD
-  - ✅ GitHub Actions: lint workflow (ruff)
-  - ✅ GitHub Actions: Docker build workflow (all 4 images)
-  - ✅ Makefile: `make up`, `make down`, `make logs`, `make health`, `make lint`
-
-- **Phase 7** ✅ Complete: Real data ingestion + tests
-  - ✅ yFinance producer (`producer_yfinance.py`): Real stock data ingestion with cached & polling modes
-  - ✅ Pytest test suite: 100+ unit tests across all services
-    - `tests/test_api.py`: API endpoint tests (health, symbols, ticks, bars, movers, metrics)
-    - `tests/test_producer.py`: Producer unit tests (simulated + yfinance)
-    - `tests/test_consumer.py`: Consumer tests (Kafka integration, DB sink, retry logic, schema validation)
-    - `tests/test_aggregator.py`: Aggregator tests (bucket calculation, OHLCV, idempotence, watermarking)
-  - ✅ pytest fixtures (`conftest.py`): sample ticks, bars, mock Kafka/DB, environment setup
-  - ✅ `pytest.ini`: Test configuration with markers (unit, integration, slow)
-  - ✅ `requirements-test.txt`: pytest, pytest-cov, faker, yfinance, test dependencies
-  - ✅ Makefile: `make test`, `make test-cov`, `make test-unit`, `make test-integration`
-
----
 
 ## Running Tests
 
