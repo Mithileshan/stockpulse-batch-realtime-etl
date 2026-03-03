@@ -51,23 +51,6 @@ Producer (simulated ticks — 6 symbols, 2s interval)
 
 ---
 
-## Project Structure
-
-```
-stockpulse-batch-realtime-etl/
-├── docker-compose.yml          # Full stack orchestration
-├── .env.example                # Environment variable template
-├── infra/
-│   ├── kafka/                  # Topic configs
-│   └── postgres/
-│       └── init.sql            # Schema: stock_ticks, stock_bars_1m, etl_runs
-├── services/
-│   ├── producer/               # Tick generator → Redpanda
-│   ├── consumer/               # Redpanda → Postgres sink
-│   ├── aggregator/             # Ticks → 1m OHLCV bars
-│   └── api/                    # FastAPI analytics layer
-└── README.md
-```
 
 ---
 
